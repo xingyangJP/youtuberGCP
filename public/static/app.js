@@ -3,7 +3,7 @@ const API_BASE_URL = '';
 
 console.log('✅ app.js loaded');
 
-// 共通ヘルパー
+// ------- グローバルヘルパー（早期に定義して参照エラーを防ぐ） -------
 function getCheckedValues(selector) {
   return Array.from(document.querySelectorAll(selector)).filter(el => el.checked).map(el => el.value);
 }
@@ -12,6 +12,25 @@ function pickRandom(arr) {
   const idx = Math.floor(Math.random() * arr.length);
   return arr[idx];
 }
+// setConfigLoaded / isConfigLoaded をグローバルに固定
+if (!window.__randomState) {
+  window.__randomState = { configLoaded: false };
+}
+function setConfigLoaded(v) {
+  window.__randomState.configLoaded = !!v;
+  window.__configLoaded = window.__randomState.configLoaded;
+}
+function isConfigLoaded() {
+  return !!(window.__randomState && window.__randomState.configLoaded);
+}
+window.setConfigLoaded = setConfigLoaded;
+window.isConfigLoaded = isConfigLoaded;
+
+function setDebugText(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
+}
+window.setDebugText = setDebugText;
 
 function setManualInputsEnabled(enabled) {
   const ids = ['action', 'instrument', 'theme', 'duration'];
@@ -304,22 +323,9 @@ actionSelect?.addEventListener('change', (e) => {
 
 // ランダム設定（初期定義を上に置き、TDZ/参照エラーを防ぐ）
 // グローバルに保存しておき、スクリプト順序やキャッシュの揺れでも参照エラーにしない
-if (!window.__randomState) {
-  window.__randomState = { configLoaded: false };
-}
 function getRandomState() {
   return window.__randomState;
 }
-function setConfigLoaded(v) {
-  window.__randomState.configLoaded = !!v;
-  window.__configLoaded = window.__randomState.configLoaded;
-}
-function isConfigLoaded() {
-  return !!(window.__randomState && window.__randomState.configLoaded);
-}
-// グローバルにも露出させておく（ロード順が入れ替わっても参照できるように）
-window.setConfigLoaded = setConfigLoaded;
-window.isConfigLoaded = isConfigLoaded;
 function syncRandomUI(checked) {
   const randomToggle = document.getElementById('randomToggle');
   const randomSettings = document.getElementById('randomSettings');
