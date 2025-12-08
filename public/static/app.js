@@ -907,7 +907,8 @@ function applyConfig(data) {
     if (r) r.checked = true
   }
   if (data.lyrics !== undefined) document.getElementById('lyrics').value = data.lyrics
-  if (randomToggle) {
+  const rt = document.getElementById('randomToggle')
+  if (rt || document.getElementById('randomSettings')) {
     const randomEnabled = data.random !== undefined ? !!data.random : true
     syncRandomUI(randomEnabled)
     if (randomEnabled && data.random === undefined) {
