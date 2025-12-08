@@ -1137,7 +1137,7 @@ app.get('/', (c) => {
                 </h1>
                 <p class="text-sm text-orange-600 font-semibold mt-1">
                   <i class="fas fa-flask mr-1"></i>
-                  ver 1.1.5
+                  ver 1.1.6
                 </p>
               </div>
             </div>
@@ -1560,7 +1560,7 @@ app.get('/', (c) => {
       </footer>
 
       {/* JavaScript */}
-      <script src="/static/app.js?v=1.1.5"></script>
+      <script src="/static/app.js?v=1.1.6"></script>
     </div>
   )
 })
