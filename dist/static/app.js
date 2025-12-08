@@ -12,6 +12,10 @@ function pickRandom(arr) {
   const idx = Math.floor(Math.random() * arr.length);
   return arr[idx];
 }
+// 安全のためデフォルト実装を用意（ロード順ずれで未定義にならないように）
+if (!window.syncRandomUI) {
+  window.syncRandomUI = () => {};
+}
 // setConfigLoaded / isConfigLoaded をグローバルに固定
 if (!window.__randomState) {
   window.__randomState = { configLoaded: false };
