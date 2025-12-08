@@ -353,24 +353,31 @@ const safeSaveLocalConfig = async () => {
 // 常にランダムモードで運用するため、初期状態でONにする
 syncRandomUI(true);
 
-saveContentBtn?.addEventListener('click', async (e) => {
-  e.preventDefault();
-  saveContentBtn.disabled = true;
-  const original = saveContentBtn.innerHTML;
-  saveContentBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>保存中...';
-  try {
-    await safeSaveLocalConfig();
-    saveContentBtn.innerHTML = '<i class="fas fa-check mr-2"></i>保存しました';
-  } catch (err) {
-    console.error('save content failed', err);
-    saveContentBtn.innerHTML = '<i class="fas fa-exclamation-triangle mr-2"></i>保存失敗';
-  } finally {
-    setTimeout(() => {
-      saveContentBtn.disabled = false;
-      saveContentBtn.innerHTML = original;
-    }, 1200);
-  }
-});
+if (saveContentBtn) {
+  console.log('✅ saveContentBtn wired');
+  saveContentBtn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    console.log('📝 saveContentBtn clicked');
+    saveContentBtn.disabled = true;
+    const original = saveContentBtn.innerHTML;
+    saveContentBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>保存中...';
+    try {
+      await safeSaveLocalConfig();
+      saveContentBtn.innerHTML = '<i class="fas fa-check mr-2"></i>保存しました';
+    } catch (err) {
+      console.error('save content failed', err);
+      setDebugText('debugSettingsSave', `error ${err.message}`);
+      saveContentBtn.innerHTML = '<i class="fas fa-exclamation-triangle mr-2"></i>保存失敗';
+    } finally {
+      setTimeout(() => {
+        saveContentBtn.disabled = false;
+        saveContentBtn.innerHTML = original;
+      }, 1200);
+    }
+  });
+} else {
+  console.warn('saveContentBtn not found in DOM');
+}
 
 // 設定変更時にYouTube設定を自動更新 & ローカル保存
 ['theme', 'instrument', 'genre', 'language', 'duration', 'action', 'lyrics'].forEach(id => {
