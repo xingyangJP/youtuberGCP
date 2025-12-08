@@ -334,6 +334,7 @@ function syncRandomUI(checked) {
   randomSettings.classList.toggle('hidden', !checked);
   setManualInputsEnabled(!checked);
 }
+window.syncRandomUI = syncRandomUI;
 
 const randomToggle = document.getElementById('randomToggle');
 const randomSettings = document.getElementById('randomSettings');
