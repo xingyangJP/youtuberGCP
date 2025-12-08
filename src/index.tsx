@@ -1223,20 +1223,15 @@ app.get('/', (c) => {
                   <textarea id="themePool" rows="3" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="元気\n夜景シネマ\n感動バラード\nトレンドダンス"></textarea>
                 </div>
 
-                <div>
-                  <label class="block text-sm font-semibold text-gray-700 mb-2">長さ候補</label>
-                  <div class="flex flex-wrap gap-3 text-sm" id="lengthCandidates">
-                    <label class="flex items-center space-x-2"><input type="checkbox" value="4" class="length-candidate" /> <span>4秒</span></label>
-                    <label class="flex items-center space-x-2"><input type="checkbox" value="8" class="length-candidate" checked /> <span>8秒</span></label>
-                    <label class="flex items-center space-x-2"><input type="checkbox" value="12" class="length-candidate" /> <span>12秒</span></label>
-                  </div>
-                </div>
-
-                <div class="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg p-3">
-                  <div class="text-sm text-gray-700">アスペクト比: <span class="font-semibold">固定</span></div>
-                  <button id="shuffleBtn" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"><i class="fas fa-random mr-2"></i>シャッフル</button>
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">長さ候補</label>
+                <div class="flex flex-wrap gap-3 text-sm" id="lengthCandidates">
+                  <label class="flex items-center space-x-2"><input type="checkbox" value="4" class="length-candidate" /> <span>4秒</span></label>
+                  <label class="flex items-center space-x-2"><input type="checkbox" value="8" class="length-candidate" checked /> <span>8秒</span></label>
+                  <label class="flex items-center space-x-2"><input type="checkbox" value="12" class="length-candidate" /> <span>12秒</span></label>
                 </div>
               </div>
+            </div>
 
               <div class="space-y-4">
                 {/* アクション選択 */}

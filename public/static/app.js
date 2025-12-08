@@ -331,7 +331,6 @@ function syncRandomUI(checked) {
 
 const randomToggle = document.getElementById('randomToggle');
 const randomSettings = document.getElementById('randomSettings');
-const shuffleBtn = document.getElementById('shuffleBtn');
 const saveContentBtn = document.getElementById('saveContentBtn');
 
 function setDebugText(id, text) {
@@ -353,13 +352,6 @@ const safeSaveLocalConfig = async () => {
 // デフォルトでランダムONにしてUIを揃える（初期表示で確実に反映）
 // 常にランダムモードで運用するため、初期状態でONにする
 syncRandomUI(true);
-
-shuffleBtn?.addEventListener('click', (e) => {
-  e.preventDefault();
-  applyRandomConfig();
-  updateYouTubeSettings();
-  safeSaveLocalConfig().catch(() => {});
-});
 
 saveContentBtn?.addEventListener('click', async (e) => {
   e.preventDefault();
