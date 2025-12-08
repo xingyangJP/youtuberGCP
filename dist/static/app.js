@@ -863,7 +863,9 @@ async function saveLocalConfig() {
   }
   // localStorage が使えなくてもサーバ保存は走らせる
   await saveServerSettings(data)
-  setDebugText('debugSettingsSave', `ok ${new Date().toLocaleTimeString('ja-JP')}`)
+  if (typeof setDebugText === 'function') {
+    setDebugText('debugSettingsSave', `ok ${new Date().toLocaleTimeString('ja-JP')}`)
+  }
 }
 
 function loadLocalConfig() {
@@ -871,7 +873,7 @@ function loadLocalConfig() {
     const raw = localStorage.getItem('formConfig')
     if (!raw) return
     const data = JSON.parse(raw)
-    setConfigLoaded(true)
+    if (typeof setConfigLoaded === 'function') setConfigLoaded(true)
     // サーバ側スケジュールを優先するため、ローカル保存のスケジュールは適用しない
     if (data.schedule) delete data.schedule
     applyConfig(data)
@@ -883,7 +885,7 @@ function loadLocalConfig() {
 
 function applyConfig(data) {
   if (!data) return
-  setConfigLoaded(true)
+  if (typeof setConfigLoaded === 'function') setConfigLoaded(true)
   if (data.characterPrompt !== undefined) document.getElementById('characterPrompt').value = data.characterPrompt
   if (data.action) document.getElementById('action').value = data.action
   if (data.instrument !== undefined) document.getElementById('instrument').value = data.instrument
@@ -956,22 +958,22 @@ async function saveServerSettings(data) {
     body: JSON.stringify(rest)
   })
   if (!res.ok) {
-    setDebugText('debugSettingsSave', `http ${res.status}`)
+    if (typeof setDebugText === 'function') setDebugText('debugSettingsSave', `http ${res.status}`)
     throw new Error(`saveServerSettings failed: ${res.status}`)
   }
   const json = await res.json().catch(() => ({}))
   if (!json.success) {
-    setDebugText('debugSettingsSave', `error ${json.error || 'unknown'}`)
+    if (typeof setDebugText === 'function') setDebugText('debugSettingsSave', `error ${json.error || 'unknown'}`)
     throw new Error(json.error || 'saveServerSettings returned error')
   }
-  setDebugText('debugSettingsSave', `ok ${new Date().toLocaleTimeString('ja-JP')}`)
+  if (typeof setDebugText === 'function') setDebugText('debugSettingsSave', `ok ${new Date().toLocaleTimeString('ja-JP')}`)
 }
 
 async function loadServerSettings() {
   try {
     const res = await fetch(`${API_BASE_URL}/api/settings`, { cache: 'no-store' })
     if (!res.ok) {
-      setDebugText('debugSettingsLoad', `http ${res.status}`)
+      if (typeof setDebugText === 'function') setDebugText('debugSettingsLoad', `http ${res.status}`)
       throw new Error(`loadServerSettings http ${res.status}`)
     }
     const json = await res.json()
@@ -979,11 +981,11 @@ async function loadServerSettings() {
       const { schedule, ...rest } = json.settings // スケジュールはサーバ専用APIからのみ反映
       applyConfig(rest)
       updateYouTubeSettings()
-      setDebugText('debugSettingsLoad', `ok ${new Date().toLocaleTimeString('ja-JP')}`)
+      if (typeof setDebugText === 'function') setDebugText('debugSettingsLoad', `ok ${new Date().toLocaleTimeString('ja-JP')}`)
     }
   } catch (e) {
     console.warn('loadServerSettings failed', e)
-    setDebugText('debugSettingsLoad', `error ${e.message}`)
+    if (typeof setDebugText === 'function') setDebugText('debugSettingsLoad', `error ${e.message}`)
   }
 }
 
