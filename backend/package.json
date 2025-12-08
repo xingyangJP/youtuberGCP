@@ -1,0 +1,19 @@
+{
+  "name": "youtube-ai-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Backend API server for YouTube AI Video System",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "@google/genai": "^1.30.0",
+    "better-sqlite3": "^9.2.2",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^4.18.2",
+    "openai": "^6.9.1"
+  }
+}
