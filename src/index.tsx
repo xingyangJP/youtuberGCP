@@ -218,15 +218,17 @@ app.post('/api/generate', async (c) => {
     const moodCount = Math.min(3, Math.max(2, shuffled.length))
     const moodText = shuffled.slice(0, moodCount).join(', ')
 
-    prompt += `${config.video.action} ${instrumentText}, ${moodText} mood, ${config.music.genre} music style, ${config.music.language} lyrics, `
-    prompt += `length ${config.video.duration} seconds, aspect ratio ${config.video.aspectRatio}`
+    // アクションを明示的に指示（Sora が曖昧にしないよう強調）
+    prompt += `action: ${config.video.action} ${instrumentText}, ${moodText} mood, ${config.music.genre} music style, ${config.music.language} language, `
+    prompt += `length ${config.video.duration} seconds, aspect ratio ${config.video.aspectRatio}, `
+    prompt += 'camera framing: medium shot (upper body), avoid extreme close-up, keep stable composition'
     // アクションに応じてリップシンク/演技指示を付与
     if (config.video.action === 'singing') {
-      prompt += ', character is singing to camera with visible lip-sync to vocals, holds mic or instrument naturally'
+      prompt += ', character is singing to camera, strict lip-sync to vocals, mouth shapes match audio, holds mic or instrument naturally'
     } else if (config.video.action === 'dancing') {
-      prompt += ', character is dancing and singing with clear lip-sync to the vocals, choreography synced to music, expressive performance'
+      prompt += ', character is dancing and singing with clear lip-sync to the vocals, choreography synced to music, expressive performance, mouth shapes must match the vocals'
     } else if (config.video.action === 'talking') {
-      prompt += ', character is speaking to camera with clear lip-sync and expressive facial animation'
+      prompt += ', character is speaking to camera with clear lip-sync and expressive facial animation, mouth shapes synchronized to speech'
     } else if (config.video.action === 'playing') {
       prompt += ', focus on instrument performance and hand movement, optional light lip-sync if vocals present'
     } else {
@@ -371,6 +373,14 @@ const timeToMinutes = (t: string | undefined | null) => {
   return h * 60 + m
 }
 
+const pickRandom = <T,>(arr: T[] | undefined | null, fallback: T): T => {
+  if (arr && arr.length > 0) {
+    const idx = Math.floor(Math.random() * arr.length)
+    return arr[idx] ?? fallback
+  }
+  return fallback
+}
+
 const buildConfigFromSettings = (settings: any, schedule: any, activeSlot: 'slot1' | 'slot2') => {
   const safe = settings || {}
   const baseSchedule = {
@@ -387,6 +397,24 @@ const buildConfigFromSettings = (settings: any, schedule: any, activeSlot: 'slot
     baseSchedule.time = schedule.slot2_time
   }
 
+  // 候補リストからのランダム選択（random が false の場合は固定値を使用）
+  const useRandom = safe.random !== false
+  const actionCandidates: string[] = Array.isArray(safe.actionCandidates) ? safe.actionCandidates.filter(Boolean) : []
+  const instrumentCandidates: string[] = Array.isArray(safe.instrumentCandidates) ? safe.instrumentCandidates.filter(Boolean) : []
+  const lengthCandidates: string[] = Array.isArray(safe.lengthCandidates) ? safe.lengthCandidates.filter(Boolean) : []
+  const themeLines = (safe.themePool || '')
+    .split(/[\n,、]/)
+    .map((t: string) => t.trim())
+    .filter(Boolean)
+
+  const chosenAction = useRandom ? pickRandom(actionCandidates, safe.action || 'singing') : (safe.action || 'singing')
+  const chosenInstrument =
+    (chosenAction === 'playing' || chosenAction === 'singing')
+      ? (useRandom ? pickRandom(instrumentCandidates, safe.instrument || '') : (safe.instrument || ''))
+      : ''
+  const chosenTheme = useRandom ? pickRandom(themeLines, safe.theme || 'vibe') : (safe.theme || 'vibe')
+  const chosenLength = useRandom ? pickRandom(lengthCandidates, safe.duration || '8') : (safe.duration || '8')
+
   return {
     character: {
       mode: 'prompt',
@@ -394,11 +422,12 @@ const buildConfigFromSettings = (settings: any, schedule: any, activeSlot: 'slot
       prompt: safe.characterPrompt || ''
     },
     video: {
-      action: safe.action || 'singing',
-      instrument: safe.instrument || '',
-      theme: safe.theme || 'vibe',
+      action: chosenAction,
+      instrument: chosenInstrument,
+      theme: chosenTheme,
       aspectRatio: safe.aspect || '9:16',
-      duration: parseInt(safe.duration || '8', 10) || 8
+      duration: parseInt(String(chosenLength), 10) || 8,
+      themePool: safe.themePool || ''
     },
     music: {
       genre: safe.genre || 'pop',
@@ -487,8 +516,9 @@ app.get('/api/cron/run-schedule', async (c) => {
 
     const savedSettings = (await getSettingsDoc()) || {}
 
-    const origin = new URL(c.req.url)
-    const baseUrl = `${origin.protocol}//${origin.host}`
+    // Cloud Scheduler 経由で http にフォールバックしないよう常に https + Host を使用する
+    const host = c.req.header('host')
+    const baseUrl = host ? `https://${host}` : ''
     // CF Access ヘッダーを引き継いで内部fetchで302を防ぐ
     const accessHeaders: Record<string, string> = {}
     const cfId = c.req.header('cf-access-client-id')
@@ -988,7 +1018,7 @@ app.post('/api/youtube-upload', async (c) => {
   }
 })
 
-// 設定保存/取得（D1にJSONで保存）
+// 設定保存/取得（FirestoreにJSONで保存）
 app.post('/api/settings', async (c) => {
   try {
     const body = await c.req.json()
@@ -1137,7 +1167,7 @@ app.get('/', (c) => {
                 </h1>
                 <p class="text-sm text-orange-600 font-semibold mt-1">
                   <i class="fas fa-flask mr-1"></i>
-                  ver 1.1.8
+                  ver 1.1.12
                 </p>
               </div>
             </div>
@@ -1233,14 +1263,12 @@ app.get('/', (c) => {
               </div>
             </div>
 
-              <div class="space-y-4">
-                {/* アクション選択 */}
+              {/* ランダム運用のため、個別入力UIは非表示にして内部だけ維持 */}
+              <div class="hidden" id="manualVideoSettings" style="display:none !important" aria-hidden="true">
+                {/* アクション選択（内部値保持用） */}
                 <div>
-                  <label class="block text-sm font-semibold text-gray-700 mb-2">
-                    アクション
-                  </label>
                   <select id="action" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                    <option value="singing">歌っている</option>
+                    <option value="singing" selected>歌っている</option>
                     <option value="dancing">踊っている</option>
                     <option value="talking">喋っている</option>
                     <option value="playing">楽器演奏</option>
@@ -1251,13 +1279,10 @@ app.get('/', (c) => {
                   </select>
                 </div>
 
-                {/* 楽器選択 */}
+                {/* 楽器選択（内部値保持用） */}
                 <div id="instrumentSection">
-                  <label class="block text-sm font-semibold text-gray-700 mb-2">
-                    楽器
-                  </label>
                   <select id="instrument" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                    <option value="acoustic-guitar">アコースティックギター</option>
+                    <option value="acoustic-guitar" selected>アコースティックギター</option>
                     <option value="piano">ピアノ</option>
                     <option value="drum">ドラム/ハンドドラム</option>
                     <option value="flute">フルート</option>
@@ -1267,11 +1292,8 @@ app.get('/', (c) => {
                   </select>
                 </div>
 
-                {/* テーマ/ムード */}
+                {/* テーマ/ムード（内部値保持用） */}
                 <div>
-                  <label class="block text-sm font-semibold text-gray-700 mb-2">
-                    テーマ・ムード
-                  </label>
                   <input 
                     type="text" 
                     id="theme"
@@ -1280,11 +1302,8 @@ app.get('/', (c) => {
                   />
                 </div>
 
-                {/* アスペクト比 */}
+                {/* アスペクト比（内部値保持用） */}
                 <div>
-                  <label class="block text-sm font-semibold text-gray-700 mb-2">
-                    アスペクト比
-                  </label>
                   <div class="flex space-x-4">
                     <label class="flex items-center">
                       <input type="radio" name="aspect" value="9:16" checked class="mr-2" />
@@ -1297,24 +1316,21 @@ app.get('/', (c) => {
                   </div>
                 </div>
 
-                {/* 動画の長さ */}
+                {/* 動画の長さ（内部値保持用） */}
                 <div>
-                  <label class="block text-sm font-semibold text-gray-700 mb-2">
-                    動画の長さ
-                  </label>
                   <select id="duration" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     <option value="4">4秒</option>
                     <option value="8" selected>8秒</option>
                     <option value="12">12秒</option>
                   </select>
                 </div>
+              </div>
 
-                {/* 動画内容設定の保存ボタン */}
-                <div class="flex justify-end pt-2">
-                  <button id="saveContentBtn" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">
-                    <i class="fas fa-save mr-2"></i>動画内容設定を保存
-                  </button>
-                </div>
+              {/* 動画内容設定の保存ボタン（候補保存用） */}
+              <div class="flex justify-end pt-2">
+                <button id="saveContentBtn" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">
+                  <i class="fas fa-save mr-2"></i>動画内容設定を保存
+                </button>
               </div>
             </div>
 
@@ -1358,17 +1374,9 @@ app.get('/', (c) => {
                   </div>
                 </div>
 
-                {/* 歌詞入力 */}
-                <div>
-                  <label class="block text-sm font-semibold text-gray-700 mb-2">
-                    歌詞（オプション）
-                  </label>
-                  <textarea 
-                    id="lyrics"
-                    rows="6"
-                    placeholder="空欄の場合は自動生成されます"
-                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  ></textarea>
+                {/* 歌詞入力（非表示：オプション機能を停止） */}
+                <div style="display:none" aria-hidden="true">
+                  <textarea id="lyrics"></textarea>
                 </div>
               </div>
             </div>
@@ -1538,6 +1546,10 @@ app.get('/', (c) => {
                   <div>YouTube Upload: <span id="debugYoutubeStatus">-</span></div>
                   <div>Settings Save: <span id="debugSettingsSave">-</span></div>
                   <div>Settings Load: <span id="debugSettingsLoad">-</span></div>
+                  <div>Job Status: <span id="debugJobStatus">-</span></div>
+                  <div>Job Error: <span id="debugJobError">-</span></div>
+                  <div>Cron Process: <span id="debugCronProcess">-</span></div>
+                  <div>Cron Check: <span id="debugCronCheck">-</span></div>
                 </div>
                 <div class="mt-3">
                   <p class="font-semibold mb-1">Recent Jobs (5)</p>
@@ -1560,7 +1572,7 @@ app.get('/', (c) => {
       </footer>
 
       {/* JavaScript */}
-      <script src="/static/app.js?v=1.1.8"></script>
+      <script src="/static/app.js?v=1.1.12"></script>
     </div>
   )
 })

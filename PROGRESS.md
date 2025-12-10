@@ -19,3 +19,10 @@ client_secret_95388533498-0lhg4qgsifaq1n2gt794ejbegjv4jaif.apps.googleuserconten
 - Cloud Run へデプロイ（PROJECT_ID=youtuber-480602, REGION=asia-northeast1, SERVICE=webapp）
 - Cloud Scheduler を5分刻みで3本作成（/api/cron/run-schedule, /api/cron/process-jobs, /api/cron/check-jobs）
 - Firestoreインデックスが要求されたら提示URLから作成
+
+## 2025-12-09
+
+- YouTube投稿先をブランドチャンネルで固定するためリフレッシュトークンを再発行（複数回）し、Secret更新→Cloud Run再デプロイ（最新リビジョン webapp-00050-9nt）。二重投稿を防ぐためフロント側のアップロード処理を停止し、サーバ側のみでアップロード。
+- プロンプト生成を強化（アクションを明示、カメラフレーミング指定、歌詞項目を非表示/送信停止）。バージョン表記を 1.1.12 に更新。
+- Cloud Scheduler の URI/audience を Cloud Run 実行URLに修正し、`cron-*` ジョブが成功する状態に復旧。OpenAI動画URL 404 でのリトライ失敗ログを確認（旧ジョブ残骸によるもの）。
+- スケジューラ・手動生成とも Firestore/Firestoreインデックスは整備済み。デバッグ情報を拡充（Job/Cronステータス、YouTube Upload 状況表示）。

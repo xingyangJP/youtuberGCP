@@ -55,9 +55,17 @@ function setManualInputsEnabled(enabled) {
 // UTC文字列(YYYY-MM-DD HH:MM:SS)をJST表示に変換
 function formatJst(dateStr) {
   if (!dateStr) return '-';
-  const iso = dateStr.replace(' ', 'T') + 'Z';
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return dateStr;
+  let d = null;
+  if (typeof dateStr === 'number') {
+    d = new Date(dateStr);
+  } else if (typeof dateStr === 'object' && dateStr.seconds !== undefined) {
+    const ms = dateStr.seconds * 1000 + Math.floor((dateStr.nanoseconds || 0) / 1e6);
+    d = new Date(ms);
+  } else if (typeof dateStr === 'string') {
+    const iso = dateStr.includes('T') ? dateStr : dateStr.replace(' ', 'T');
+    d = new Date(iso);
+  }
+  if (!d || isNaN(d.getTime())) return String(dateStr);
   return new Intl.DateTimeFormat('ja-JP', {
     timeZone: 'Asia/Tokyo',
     month: '2-digit',
@@ -134,24 +142,38 @@ function getScheduleConfig() {
 
 // 設定を収集
 function getConfig() {
+  const actionEl = document.getElementById('action');
+  const instrumentEl = document.getElementById('instrument');
+  const themeEl = document.getElementById('theme');
+  const aspectRadio = document.querySelector('input[name="aspect"]:checked');
+  const durationEl = document.getElementById('duration');
+  const themePoolText = document.getElementById('themePool')?.value || '';
+  const parsedThemes = themePoolText
+    .split(/\r?\n|,/)
+    .map(t => t.trim())
+    .filter(Boolean);
+  const defaultTheme = parsedThemes[0] || '';
+  const actionVal = actionEl?.value || pickRandom(getCheckedValues('.action-candidate')) || 'singing';
+  const instrumentVal = instrumentEl?.value || pickRandom(getCheckedValues('.instrument-candidate')) || '';
+  const durationVal = durationEl?.value || (getCheckedValues('.length-candidate')[0] || '8');
+  const aspectVal = aspectRadio?.value || '9:16';
   return {
     character: {
       mode: 'prompt',
       imageUrl: '',
-      prompt: document.getElementById('characterPrompt').value
+      prompt: document.getElementById('characterPrompt')?.value || ''
     },
     video: {
-      action: document.getElementById('action').value,
-      instrument: document.getElementById('instrument').value,
-      theme: document.getElementById('theme').value,
-      themePool: document.getElementById('themePool')?.value || '',
-      aspectRatio: document.querySelector('input[name="aspect"]:checked').value,
-      duration: parseInt(document.getElementById('duration').value)
+      action: actionVal,
+      instrument: instrumentVal,
+      theme: themeEl?.value || defaultTheme,
+      themePool: themePoolText,
+      aspectRatio: aspectVal,
+      duration: parseInt(durationVal)
     },
     music: {
-      genre: document.getElementById('genre').value,
-      language: document.querySelector('input[name="language"]:checked').value,
-      lyrics: document.getElementById('lyrics').value
+      genre: document.getElementById('genre')?.value || 'pop',
+      language: document.querySelector('input[name="language"]:checked')?.value || 'english'
     },
     schedule: getScheduleConfig()
   };
@@ -187,12 +209,6 @@ function displayYouTubeSettings(youtube) {
           ${youtube.tags.split(',').map(tag => 
             `<span class="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">${tag.trim()}</span>`
           ).join('')}
-        </div>
-      </div>
-      <div class="bg-green-50 border border-green-200 rounded-lg p-3 mt-3">
-        <div class="flex items-center">
-          <i class="fas fa-check-circle text-green-600 mr-2"></i>
-          <span class="text-xs font-semibold text-green-800">AI自動生成完了</span>
         </div>
       </div>
     </div>
@@ -391,7 +407,7 @@ if (saveContentBtn) {
 }
 
 // 設定変更時にYouTube設定を自動更新 & ローカル保存
-['theme', 'instrument', 'genre', 'language', 'duration', 'action', 'lyrics'].forEach(id => {
+['theme', 'instrument', 'genre', 'language', 'duration', 'action'].forEach(id => {
   const element = document.getElementById(id);
   if (element) {
     element.addEventListener('change', () => { updateYouTubeSettings(); safeSaveLocalConfig().catch(() => {}); });
@@ -613,14 +629,18 @@ generateBtn?.addEventListener('click', async () => {
   const youtubeResult = await youtubeResponse.json();
   if (youtubeResult.success && youtubeResult.youtube) {
     config.youtube = youtubeResult.youtube;
+    setDebugText('debugYoutubeStatus', 'generated');
   } else {
     config.youtube = buildLocalYoutube(config);
+    setDebugText('debugYoutubeStatus', `fallback: ${youtubeResult.error || 'local'}`);
   }
 
   // 生成開始
   generateBtn.disabled = true;
   generateBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>生成中...';
   generationStatus.classList.remove('hidden');
+  setDebugText('debugJobStatus', 'job creating...');
+  setDebugText('debugJobError', '-');
 
   try {
     // ジョブを作成（即座にレスポンスが返る）
@@ -643,6 +663,8 @@ generateBtn?.addEventListener('click', async () => {
     }
 
     console.log('✅ Job created:', result.jobId);
+    setDebugText('debugJobStatus', `pending (${result.jobId})`);
+    setDebugText('debugJobError', '-');
     
     // ポーリング開始
     generationStatus.innerHTML = `
@@ -657,6 +679,7 @@ generateBtn?.addEventListener('click', async () => {
     
     // バックグラウンド処理をトリガー
     fetch(`${API_BASE_URL}/api/cron/process-jobs`).catch(err => console.log('Cron trigger error:', err));
+    setDebugText('debugCronProcess', 'triggered');
     
     // 10秒ごとにポーリング（Sora 2は数分程度）
     let pollCount = 0;
@@ -665,7 +688,18 @@ generateBtn?.addEventListener('click', async () => {
     const pollInterval = setInterval(async () => {
       // 90秒経過後から30秒ごとにバックグラウンド完了確認をトリガー
       if (pollCount >= 9 && pollCount % 3 === 0) { // 90秒後から30秒ごと
-        fetch(`${API_BASE_URL}/api/cron/check-jobs`).catch(err => console.log('Cron check error:', err));
+        fetch(`${API_BASE_URL}/api/cron/check-jobs`)
+          .then(res => {
+            if (!res.ok) {
+              setDebugText('debugCronCheck', `http ${res.status}`);
+            } else {
+              setDebugText('debugCronCheck', 'ok');
+            }
+          })
+          .catch(err => {
+            console.log('Cron check error:', err);
+            setDebugText('debugCronCheck', `error ${err.message}`);
+          });
       }
       
       try {
@@ -682,6 +716,7 @@ generateBtn?.addEventListener('click', async () => {
         
         const job = jobResult.job;
         console.log('Job status:', job.status);
+        setDebugText('debugJobStatus', job.status || '-');
         
           if (job.status === 'completed') {
           clearInterval(pollInterval);
@@ -720,38 +755,12 @@ generateBtn?.addEventListener('click', async () => {
             if (dbg) dbg.textContent = job.videoUrl;
           }
 
-          // YouTube自動投稿
-          if (job.videoUrl && config.youtube) {
-            uploadToYouTube(job.videoUrl, config.youtube, config.schedule?.privacy || 'unlisted')
-              .then(res => {
-                if (res.success) {
-                  const dbg = document.getElementById('debugYoutubeStatus');
-                  if (dbg) dbg.textContent = `uploaded: https://youtu.be/${res.videoId}`;
-                  generationStatus.innerHTML += `
-                    <div class="mt-2 text-sm text-green-700">
-                      <i class="fab fa-youtube text-red-500 mr-1"></i> YouTube upload success: https://youtu.be/${res.videoId}
-                    </div>`;
-                } else {
-                  const dbg = document.getElementById('debugYoutubeStatus');
-                  if (dbg) dbg.textContent = `upload failed: ${res.error || 'unknown'}`;
-                  generationStatus.innerHTML += `
-                    <div class="mt-2 text-sm text-red-700">
-                      <i class="fab fa-youtube text-red-500 mr-1"></i> YouTube upload failed: ${res.error || 'unknown error'}
-                    </div>`;
-                }
-              })
-              .catch(err => {
-                const dbg = document.getElementById('debugYoutubeStatus');
-                if (dbg) dbg.textContent = `upload failed: ${err.message}`;
-                generationStatus.innerHTML += `
-                  <div class="mt-2 text-sm text-red-700">
-                    <i class="fab fa-youtube text-red-500 mr-1"></i> YouTube upload failed: ${err.message}
-                  </div>`;
-              })
-          }
+          // YouTube自動投稿はサーバ側（/api/cron/check-jobs）で実行済みのためフロントでは行わない
 
           // 履歴に追加
           addToHistory({ videoUrl: job.videoUrl }, config);
+          setDebugText('debugJobStatus', 'completed');
+          setDebugText('debugJobError', '-');
 
           // ボタンをリセット
           generateBtn.disabled = false;
@@ -759,10 +768,14 @@ generateBtn?.addEventListener('click', async () => {
           
         } else if (job.status === 'failed') {
           clearInterval(pollInterval);
-          throw new Error(job.errorMessage || '動画生成に失敗しました');
+          setDebugText('debugJobStatus', 'failed');
+          setDebugText('debugJobError', job.error_message || job.errorMessage || '動画生成に失敗しました');
+          throw new Error(job.error_message || job.errorMessage || '動画生成に失敗しました');
           
         } else if (pollCount >= maxPolls) {
           clearInterval(pollInterval);
+          setDebugText('debugJobStatus', 'timeout');
+          setDebugText('debugJobError', 'タイムアウト: 30分超過');
           throw new Error('タイムアウト: 動画生成に30分以上かかっています');
         } else if (job.status === 'processing' && pollCount % 6 === 0) {
           // 60秒ごとにステータスメッセージを更新
@@ -781,6 +794,7 @@ generateBtn?.addEventListener('click', async () => {
       } catch (pollError) {
         clearInterval(pollInterval);
         console.error('Polling error:', pollError);
+        setDebugText('debugJobError', `poll error: ${pollError.message}`);
         generationStatus.innerHTML = `
           <div class="bg-red-50 border border-red-200 rounded-lg p-4">
             <div class="flex items-center">
@@ -797,6 +811,7 @@ generateBtn?.addEventListener('click', async () => {
 
   } catch (error) {
     console.error('Error:', error);
+    setDebugText('debugJobError', error.message);
     generationStatus.innerHTML = `
       <div class="bg-red-50 border border-red-200 rounded-lg p-4">
         <div class="flex items-center">
@@ -840,8 +855,8 @@ async function uploadToYouTube(videoUrl, youtube, privacy) {
   console.log('YouTube AI Video Generator - Ready');
   
   // 初期状態で楽器セクションを表示
-  const action = document.getElementById('action').value;
-  if (action !== 'playing' && action !== 'singing') {
+  const action = document.getElementById('action')?.value;
+  if (instrumentSection && action !== 'playing' && action !== 'singing') {
     instrumentSection.style.display = 'none';
   }
   
@@ -860,7 +875,6 @@ async function saveLocalConfig() {
     duration: document.getElementById('duration')?.value || '',
     genre: document.getElementById('genre')?.value || '',
     language: document.querySelector('input[name="language"]:checked')?.value || '',
-    lyrics: document.getElementById('lyrics')?.value || '',
     random: true,
     themePool: document.getElementById('themePool')?.value || '',
     actionCandidates: getCheckedValues('.action-candidate'),
@@ -897,21 +911,26 @@ function loadLocalConfig() {
 function applyConfig(data) {
   if (!data) return
   if (typeof setConfigLoaded === 'function') setConfigLoaded(true)
-  if (data.characterPrompt !== undefined) document.getElementById('characterPrompt').value = data.characterPrompt
-  if (data.action) document.getElementById('action').value = data.action
-  if (data.instrument !== undefined) document.getElementById('instrument').value = data.instrument
-  if (data.theme !== undefined) document.getElementById('theme').value = data.theme
+  const characterPromptEl = document.getElementById('characterPrompt')
+  if (data.characterPrompt !== undefined && characterPromptEl) characterPromptEl.value = data.characterPrompt
+  const actionEl = document.getElementById('action')
+  if (data.action && actionEl) actionEl.value = data.action
+  const instrumentEl = document.getElementById('instrument')
+  if (data.instrument !== undefined && instrumentEl) instrumentEl.value = data.instrument
+  const themeEl = document.getElementById('theme')
+  if (data.theme !== undefined && themeEl) themeEl.value = data.theme
   if (data.aspect) {
     const r = document.querySelector(`input[name="aspect"][value="${data.aspect}"]`)
     if (r) r.checked = true
   }
-  if (data.duration) document.getElementById('duration').value = data.duration
-  if (data.genre) document.getElementById('genre').value = data.genre
+  const durationEl = document.getElementById('duration')
+  if (data.duration && durationEl) durationEl.value = data.duration
+  const genreEl = document.getElementById('genre')
+  if (data.genre && genreEl) genreEl.value = data.genre
   if (data.language) {
     const r = document.querySelector(`input[name="language"][value="${data.language}"]`)
     if (r) r.checked = true
   }
-  if (data.lyrics !== undefined) document.getElementById('lyrics').value = data.lyrics
   const rt = document.getElementById('randomToggle')
   if (rt || document.getElementById('randomSettings')) {
     const randomEnabled = data.random !== undefined ? !!data.random : true
@@ -1036,7 +1055,8 @@ async function loadSchedule() {
 // 最終フォールバック: 設定が読み込まれなかった場合はランダムONで初期化
 document.addEventListener('DOMContentLoaded', () => {
   setTimeout(() => {
-    if (!isConfigLoaded() && randomToggle) {
+    const rt = document.getElementById('randomToggle');
+    if (!isConfigLoaded() && rt) {
       syncRandomUI(true)
       applyRandomConfig()
       safeSaveLocalConfig().catch(() => {})
