@@ -74,6 +74,35 @@ const getJobById = async (jobId) => {
 };
 const app = new Hono();
 app.use("/api/*", cors());
+app.use("*", async (c, next) => {
+  const user = c.env.BASIC_USER || process.env.BASIC_USER;
+  const pass = c.env.BASIC_PASS || process.env.BASIC_PASS;
+  if (!user || !pass || c.req.path.startsWith("/api/")) {
+    return next();
+  }
+  const header = c.req.header("authorization") || "";
+  if (!header.startsWith("Basic ")) {
+    return new Response("Unauthorized", {
+      status: 401,
+      headers: { "WWW-Authenticate": 'Basic realm="Restricted"' }
+    });
+  }
+  try {
+    const decoded = Buffer.from(header.slice(6), "base64").toString("utf8");
+    const idx = decoded.indexOf(":");
+    const u = idx >= 0 ? decoded.slice(0, idx) : decoded;
+    const p = idx >= 0 ? decoded.slice(idx + 1) : "";
+    if (u === user && p === pass) {
+      return next();
+    }
+  } catch (err) {
+    console.error("Basic auth decode failed", (err == null ? void 0 : err.message) || err);
+  }
+  return new Response("Unauthorized", {
+    status: 401,
+    headers: { "WWW-Authenticate": 'Basic realm="Restricted"' }
+  });
+});
 app.use(renderer);
 const logError = (label, error) => {
   try {
@@ -311,6 +340,13 @@ const timeToMinutes = (t) => {
   if (Number.isNaN(h) || Number.isNaN(m)) return 0;
   return h * 60 + m;
 };
+const pickRandom = (arr, fallback) => {
+  if (arr && arr.length > 0) {
+    const idx = Math.floor(Math.random() * arr.length);
+    return arr[idx] ?? fallback;
+  }
+  return fallback;
+};
 const buildConfigFromSettings = (settings, schedule, activeSlot) => {
   const safe = settings || {};
   const baseSchedule = {
@@ -325,6 +361,15 @@ const buildConfigFromSettings = (settings, schedule, activeSlot) => {
   if (activeSlot === "slot2" && (schedule == null ? void 0 : schedule.slot2_time)) {
     baseSchedule.time = schedule.slot2_time;
   }
+  const useRandom = safe.random !== false;
+  const actionCandidates = Array.isArray(safe.actionCandidates) ? safe.actionCandidates.filter(Boolean) : [];
+  const instrumentCandidates = Array.isArray(safe.instrumentCandidates) ? safe.instrumentCandidates.filter(Boolean) : [];
+  const lengthCandidates = Array.isArray(safe.lengthCandidates) ? safe.lengthCandidates.filter(Boolean) : [];
+  const themeLines = (safe.themePool || "").split(/[\n,、]/).map((t) => t.trim()).filter(Boolean);
+  const chosenAction = useRandom ? pickRandom(actionCandidates, safe.action || "singing") : safe.action || "singing";
+  const chosenInstrument = chosenAction === "playing" || chosenAction === "singing" ? useRandom ? pickRandom(instrumentCandidates, safe.instrument || "") : safe.instrument || "" : "";
+  const chosenTheme = useRandom ? pickRandom(themeLines, safe.theme || "vibe") : safe.theme || "vibe";
+  const chosenLength = useRandom ? pickRandom(lengthCandidates, safe.duration || "8") : safe.duration || "8";
   return {
     character: {
       mode: "prompt",
@@ -332,11 +377,12 @@ const buildConfigFromSettings = (settings, schedule, activeSlot) => {
       prompt: safe.characterPrompt || ""
     },
     video: {
-      action: safe.action || "singing",
-      instrument: safe.instrument || "",
-      theme: safe.theme || "vibe",
+      action: chosenAction,
+      instrument: chosenInstrument,
+      theme: chosenTheme,
       aspectRatio: safe.aspect || "9:16",
-      duration: parseInt(safe.duration || "8", 10) || 8
+      duration: parseInt(String(chosenLength), 10) || 8,
+      themePool: safe.themePool || ""
     },
     music: {
       genre: safe.genre || "pop",
@@ -965,7 +1011,7 @@ app.get("/", (c) => {
             /* @__PURE__ */ jsx("h1", { class: "text-3xl font-bold text-gray-900", children: "AI動画自動投稿システム" }),
             /* @__PURE__ */ jsxs("p", { class: "text-sm text-orange-600 font-semibold mt-1", children: [
               /* @__PURE__ */ jsx("i", { class: "fas fa-flask mr-1" }),
-              "ver 1.1.12"
+              "ver 1.1.14"
             ] })
           ] })
         ] }),

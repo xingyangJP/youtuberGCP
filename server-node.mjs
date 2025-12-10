@@ -22,7 +22,9 @@ const env = {
   APP_CRYPTO_KEY: process.env.APP_CRYPTO_KEY,
   GOOGLE_CLOUD_PROJECT: process.env.GOOGLE_CLOUD_PROJECT,
   FIRESTORE_PROJECT_ID: process.env.FIRESTORE_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || process.env.PROJECT_ID,
-  TIMEZONE: process.env.TIMEZONE
+  TIMEZONE: process.env.TIMEZONE,
+  BASIC_USER: process.env.BASIC_USER,
+  BASIC_PASS: process.env.BASIC_PASS
 }
 const handleFetch = worker.fetch.bind(worker)
 

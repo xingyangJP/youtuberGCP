@@ -12,6 +12,8 @@ type Bindings = {
   YOUTUBE_REFRESH_TOKEN?: string
   GOOGLE_CLOUD_PROJECT?: string
   FIRESTORE_PROJECT_ID?: string
+  BASIC_USER?: string
+  BASIC_PASS?: string
 }
 
 // Firestore クライアント（ADC 前提）
@@ -98,6 +100,38 @@ const app = new Hono<{ Bindings: Bindings }>()
 
 // CORS設定
 app.use('/api/*', cors())
+
+// Basic認証（APIは除外、BASIC_USER/BASIC_PASS が設定されている場合のみ適用）
+app.use('*', async (c, next) => {
+  const user = c.env.BASIC_USER || process.env.BASIC_USER
+  const pass = c.env.BASIC_PASS || process.env.BASIC_PASS
+  // 認証未設定 or API はスキップ
+  if (!user || !pass || c.req.path.startsWith('/api/')) {
+    return next()
+  }
+  const header = c.req.header('authorization') || ''
+  if (!header.startsWith('Basic ')) {
+    return new Response('Unauthorized', {
+      status: 401,
+      headers: { 'WWW-Authenticate': 'Basic realm="Restricted"' }
+    })
+  }
+  try {
+    const decoded = Buffer.from(header.slice(6), 'base64').toString('utf8')
+    const idx = decoded.indexOf(':')
+    const u = idx >= 0 ? decoded.slice(0, idx) : decoded
+    const p = idx >= 0 ? decoded.slice(idx + 1) : ''
+    if (u === user && p === pass) {
+      return next()
+    }
+  } catch (err) {
+    console.error('Basic auth decode failed', (err as any)?.message || err)
+  }
+  return new Response('Unauthorized', {
+    status: 401,
+    headers: { 'WWW-Authenticate': 'Basic realm="Restricted"' }
+  })
+})
 
 app.use(renderer)
 
@@ -1167,7 +1201,7 @@ app.get('/', (c) => {
                 </h1>
                 <p class="text-sm text-orange-600 font-semibold mt-1">
                   <i class="fas fa-flask mr-1"></i>
-                  ver 1.1.12
+                  ver 1.1.14
                 </p>
               </div>
             </div>
