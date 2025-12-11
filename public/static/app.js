@@ -935,8 +935,14 @@ function applyConfig(data) {
   if (rt || document.getElementById('randomSettings')) {
     const randomEnabled = data.random !== undefined ? !!data.random : true
     syncRandomUI(randomEnabled)
-    // ランダム運用ではロード時も毎回シャッフルして候補を反映
-    if (randomEnabled) applyRandomConfig()
+    // 保存済みの候補が無い場合のみ初期シャッフルを実行し、保存済み設定を上書きしない
+    const hasSavedCandidates = [
+      data.actionCandidates?.length,
+      data.instrumentCandidates?.length,
+      data.lengthCandidates?.length,
+      (data.themePool || '').trim().length
+    ].some(Boolean)
+    if (randomEnabled && !hasSavedCandidates) applyRandomConfig()
     refreshSchedulerUI();
   }
   if (data.themePool !== undefined) {
