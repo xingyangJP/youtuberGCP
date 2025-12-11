@@ -1606,7 +1606,7 @@ app.get('/', (c) => {
       </footer>
 
       {/* JavaScript */}
-      <script src="/static/app.js?v=1.1.12"></script>
+      <script src="/static/app.js?v=1.1.15"></script>
     </div>
   )
 })

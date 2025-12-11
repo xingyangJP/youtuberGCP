@@ -1415,7 +1415,7 @@ app.get("/", (c) => {
         ] }) })
       ] }) }),
       /* @__PURE__ */ jsx("footer", { class: "bg-white border-t border-gray-200 mt-12", children: /* @__PURE__ */ jsx("div", { class: "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6", children: /* @__PURE__ */ jsx("p", { class: "text-center text-gray-500 text-sm", children: "© 2024 YouTube AI Video Auto-Upload System" }) }) }),
-      /* @__PURE__ */ jsx("script", { src: "/static/app.js?v=1.1.12" })
+      /* @__PURE__ */ jsx("script", { src: "/static/app.js?v=1.1.15" })
     ] })
   );
 });
