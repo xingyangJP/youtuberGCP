@@ -1,5 +1,7 @@
 # YouTube AI動画自動投稿システム
-https://github.com/xerographix/youtuberGCP.git  
+git@github.com:xingyangJP/youtuberGCP.git
+https://webapp-95388533498.asia-northeast1.run.app/
+
 GCP（Cloud Run）+ Firestore + Hono で動く、AI動画生成とYouTube自動投稿の一体型アプリです。UIとAPIを1つのHonoアプリで提供し、Firestoreに設定・ジョブを保存します。
 
 ## 仕組みの概要

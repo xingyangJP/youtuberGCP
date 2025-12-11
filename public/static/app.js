@@ -930,14 +930,13 @@ function applyConfig(data) {
   if (data.language) {
     const r = document.querySelector(`input[name="language"][value="${data.language}"]`)
     if (r) r.checked = true
-  }
+ }
   const rt = document.getElementById('randomToggle')
   if (rt || document.getElementById('randomSettings')) {
     const randomEnabled = data.random !== undefined ? !!data.random : true
     syncRandomUI(randomEnabled)
-    if (randomEnabled && data.random === undefined) {
-      applyRandomConfig()
-    }
+    // ランダム運用ではロード時も毎回シャッフルして候補を反映
+    if (randomEnabled) applyRandomConfig()
     refreshSchedulerUI();
   }
   if (data.themePool !== undefined) {
