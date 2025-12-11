@@ -1201,7 +1201,7 @@ app.get('/', (c) => {
                 </h1>
                 <p class="text-sm text-orange-600 font-semibold mt-1">
                   <i class="fas fa-flask mr-1"></i>
-                  ver 1.1.14
+                  ver 1.1.15
                 </p>
               </div>
             </div>

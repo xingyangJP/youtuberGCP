@@ -1011,7 +1011,7 @@ app.get("/", (c) => {
             /* @__PURE__ */ jsx("h1", { class: "text-3xl font-bold text-gray-900", children: "AI動画自動投稿システム" }),
             /* @__PURE__ */ jsxs("p", { class: "text-sm text-orange-600 font-semibold mt-1", children: [
               /* @__PURE__ */ jsx("i", { class: "fas fa-flask mr-1" }),
-              "ver 1.1.14"
+              "ver 1.1.15"
             ] })
           ] })
         ] }),
